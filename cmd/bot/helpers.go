@@ -1,8 +1,6 @@
 package main
 
 import (
-	"math/rand"
-
 	"github.com/Jacobbrewer1/discordgo"
 	"github.com/Jacobbrewer1/wolf/pkg/messages"
 )
@@ -19,8 +17,4 @@ func respondSlashEphemeral(a IApp, i *discordgo.InteractionCreate, content strin
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
-}
-
-func rangeIn(low, hi int) int {
-	return low + rand.Intn(hi-low)
 }
