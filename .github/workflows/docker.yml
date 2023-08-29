@@ -1,0 +1,96 @@
+name: Docker
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "main" ]
+    types:
+      - opened
+      - reopened
+      - synchronize # source branch updated
+  push:
+    branches: [ "main" ]
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-20.04
+    permissions: write-all
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.1
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@4c0219f9ac95b02789c1075625400b2acbff50b1
+
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Log into registry
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build binary
+        run: |
+          cd ./cmd/bot
+          go mod tidy
+          go build -o wolf
+
+      - name: Set outputs
+        id: vars_build
+        run: |
+          echo "sha_short_build=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_OUTPUT
+          
+          # If pull request, use the base branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "branch=${${{ github.event.pull_request.base.ref }}#refs/heads/}" >> $GITHUB_OUTPUT
+          # Else use the branch
+          else
+              echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate image tag
+        id: image_tag
+        run: |
+          # If release then use the tag, otherwise use the branch and commit sha
+          echo "image_tag=${{ steps.vars_build.outputs.branch }}_${{ steps.vars_build.outputs.sha_short_build }}" >> $GITHUB_OUTPUT
+
+      - name: Docker build
+        run: |
+          cd ./cmd/bot
+          docker build . -t ${{ env.REGISTRY }}/jacobbrewer1/wolf:${{ steps.image_tag.outputs.image_tag }}
+
+      - name: Docker push
+        if: ${{ github.event_name != 'pull_request' }}
+        run: docker push ${{ env.REGISTRY }}/jacobbrewer1/wolf:${{ steps.image_tag.outputs.image_tag }}
