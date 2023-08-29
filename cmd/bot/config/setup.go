@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"os"
 
 	"github.com/Jacobbrewer1/wolf/pkg/dataaccess"
@@ -11,10 +10,6 @@ import (
 )
 
 func Parse(l *slog.Logger) {
-	flagBT := flag.String(EnvBotToken, "", "(Optional) The token for the bot.")
-	flagAppId := flag.String(EnvApplicationId, "", "(Optional) The ID of the application.")
-	flagMongoUri := flag.String(EnvMongoUri, "", "(Optional) The URI for the MongoDB database.")
-
 	if envBT := os.Getenv(EnvBotToken); envBT != "" {
 		l.Debug("Found bot token in environment", slog.String("key", EnvBotToken))
 		BotToken = envBT
@@ -42,40 +37,12 @@ func Parse(l *slog.Logger) {
 
 	if BotToken != "" &&
 		ApplicationId != "" &&
-		MongoUri != "" &&
-		EmailFrom != "" &&
-		EmailPassword != "" &&
-		EmailHost != "" &&
-		EmailPort != "" {
+		MongoUri != "" {
 
 		// All required environment variables have been provided.
 		l.Debug("All required environment variables have been provided")
 		connectMongo(l)
 		return
-	}
-
-	flag.Parse()
-
-	if *flagBT != "" {
-		BotToken = *flagBT
-	} else {
-		l.Error("No bot token provided in environment or flag", slog.String("key", EnvBotToken))
-		os.Exit(1)
-	}
-
-	if *flagAppId != "" {
-		ApplicationId = *flagAppId
-	} else {
-		l.Error("No application ID provided in environment or flag", slog.String("key", EnvApplicationId))
-		os.Exit(1)
-	}
-
-	if *flagMongoUri != "" {
-		MongoUri = *flagMongoUri
-		connectMongo(l)
-	} else {
-		l.Error("No MongoDB URI provided in environment or flag", slog.String("key", EnvMongoUri))
-		os.Exit(1)
 	}
 }
 
