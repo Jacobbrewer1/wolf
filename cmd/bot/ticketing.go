@@ -200,10 +200,8 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
 
-	category := new(discordgo.Channel)
-
 	// Ensure that the category exists for created tickets.
-	category, err = a.Session().Channel(guild.Ticketing.CreatedTicketsCategoryID)
+	category, err := a.Session().Channel(guild.Ticketing.CreatedTicketsCategoryID)
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
@@ -421,10 +419,8 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	// Claim the ticket.
 	ticket.ClaimedBy = i.Member.User.ID
 
-	category := new(discordgo.Channel)
-
 	// Ensure that the category exists for created tickets.
-	category, err = a.Session().Channel(guild.Ticketing.ClaimedTicketsCategoryID)
+	category, err := a.Session().Channel(guild.Ticketing.ClaimedTicketsCategoryID)
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
@@ -483,6 +479,9 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			Content: fmt.Sprintf("<@%s>, you have claimed this ticket.", i.Member.User.ID),
 		},
 	})
+	if err != nil {
+		return fmt.Errorf("error responding to interaction: %w", err)
+	}
 
 	// Update the channel topic.
 	if err := updateChannelTopic(a, ticket, ClaimTicketButtonID); err != nil {
@@ -495,6 +494,9 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 func setButtonDisabled(a IApp, i *discordgo.InteractionCreate, buttonID string, disabled bool) error {
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error getting channel: %w", err)
+	}
 
 	// Get the ticket.
 	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
@@ -579,10 +581,8 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 		return nil
 	}
 
-	category := new(discordgo.Channel)
-
 	// Ensure that the category exists for created tickets.
-	category, err = a.Session().Channel(guild.Ticketing.ClosedTicketsCategoryID)
+	category, err := a.Session().Channel(guild.Ticketing.ClosedTicketsCategoryID)
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
