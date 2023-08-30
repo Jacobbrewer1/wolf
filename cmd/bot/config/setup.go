@@ -44,6 +44,9 @@ func Parse(l *slog.Logger) {
 		connectMongo(l)
 		return
 	}
+
+	l.Error("Not all required environment variables have been provided", slog.String(logging.KeyError, "Incomplete configuration"))
+	os.Exit(1)
 }
 
 func connectMongo(l *slog.Logger) {

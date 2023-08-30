@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/Jacobbrewer1/discordgo"
 	"github.com/Jacobbrewer1/wolf/cmd/bot/config"
 	"github.com/Jacobbrewer1/wolf/cmd/bot/monitoring"
+	"github.com/Jacobbrewer1/wolf/pkg/dataaccess"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"github.com/Jacobbrewer1/wolf/pkg/request"
 	"github.com/gorilla/mux"
@@ -24,6 +26,18 @@ type IApp interface {
 
 	// Session returns the discord session.
 	Session() *discordgo.Session
+
+	// IAppDataAccess is the data access layer for the application.
+	IAppDataAccess
+}
+
+// IAppDataAccess is the data access layer for the application.
+type IAppDataAccess interface {
+	// GuildDal is the data access layer for guilds.
+	GuildDal(ctx context.Context) dataaccess.IGuildDal
+
+	// TicketDal is the data access layer for tickets.
+	TicketDal(ctx context.Context) dataaccess.ITicketDal
 }
 
 type App struct {
@@ -61,6 +75,11 @@ func (a *App) Run() error {
 		a.Info(fmt.Sprintf("Logged in as %s#%s", r.User.Username, r.User.Discriminator))
 	})
 
+	// Register slash commands.
+	if err := a.registerSlashCommands(); err != nil {
+		return fmt.Errorf("error registering slash commands: %w", err)
+	}
+
 	if err := a.RegisterDiscordHandlers(); err != nil {
 		return fmt.Errorf("error registering discord handlers: %w", err)
 	}
@@ -89,7 +108,7 @@ func (a *App) Run() error {
 		if err := a.ShutdownHook(); err != nil {
 			a.Error("Error shutting down application", slog.String(logging.KeyError, err.Error()))
 		}
-		os.Exit(1)
+		os.Exit(0)
 	}
 	return nil
 }
@@ -97,6 +116,11 @@ func (a *App) Run() error {
 func (a *App) ShutdownHook() error {
 	// Reset the total number of guilds to 0.
 	monitoring.TotalDiscordGuilds.Set(0)
+
+	// Unregister slash commands.
+	if err := a.unregisterSlashCommands(); err != nil {
+		return fmt.Errorf("error unregistering slash commands: %w", err)
+	}
 
 	// Close the connection to Discord.
 	if err := a.s.Close(); err != nil {
@@ -158,7 +182,7 @@ func (a *App) generateServer() {
 	}
 }
 
-func (a *App) GetGuilds() ([]*discordgo.UserGuild, error) {
+func (a *App) GetJoinedGuilds() ([]*discordgo.UserGuild, error) {
 	guilds, err := a.s.UserGuilds(0, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("error getting guilds: %w", err)
@@ -173,8 +197,21 @@ func (a *App) RegisterDiscordHandlers() error {
 	// Bot left guild.
 	a.s.AddHandler(guildLeaveHandler(a))
 
-	// Slash commands.
-	a.s.AddHandler(slashCommandHandler(a, map[string]slashCommandController{}))
+	// Interaction create handler.
+	a.s.AddHandler(interactionHandler(a,
+		// Slash Controllers
+		map[string]commandController{
+			setupCmd.Name: setupCmdController,
+		},
+		// Button Controllers
+		map[string]commandProcessor{
+			OpenTicketButtonID:         createTicket,
+			ClaimTicketButtonID:        claimTicketHandler,
+			CloseTicketButtonID:        closeTicketHandler,
+			ReopenTicketButtonID:       reopenTicketHandler,
+			DeleteTicketButtonID:       deleteTicketHandler,
+			DeleteConfirmationButtonID: deleteTicketConfirmationHandler,
+		}))
 	return nil
 }
 
@@ -195,10 +232,64 @@ func (a *App) eventListener() {
 	}
 }
 
+func (a *App) registerSlashCommands() error {
+	// Get all guilds the bot is in.
+	guilds, err := a.GetJoinedGuilds()
+	if err != nil {
+		return fmt.Errorf("error getting guilds: %w", err)
+	}
+
+	// Register slash commands for each guild.
+	for _, g := range guilds {
+		// Register the setup command.
+		if _, err := a.Session().ApplicationCommandCreate(config.ApplicationId, g.ID, setupCmd); err != nil {
+			a.Log().Error("Error creating slash command", slog.String(logging.KeyError, err.Error()))
+			return fmt.Errorf("error creating slash command: %w", err)
+		}
+
+		// Register the ticket command.
+		if _, err := a.Session().ApplicationCommandCreate(config.ApplicationId, g.ID, ticketCmd); err != nil {
+			a.Log().Error("Error creating slash command", slog.String(logging.KeyError, err.Error()))
+			return fmt.Errorf("error creating slash command: %w", err)
+		}
+	}
+	return nil
+}
+
+func (a *App) unregisterSlashCommands() error {
+	// Get all guilds the bot is in.
+	guilds, err := a.GetJoinedGuilds()
+	if err != nil {
+		return fmt.Errorf("error getting guilds: %w", err)
+	}
+
+	// Delete slash commands for each guild.
+	for _, guild := range guilds {
+		// Delete the setup command.
+		if err := a.s.ApplicationCommandDelete(config.ApplicationId, guild.ID, setupCmd.ID); err != nil {
+			return fmt.Errorf("error deleting command: %w", err)
+		}
+
+		// Delete the ticket command.
+		if err := a.s.ApplicationCommandDelete(config.ApplicationId, guild.ID, ticketCmd.ID); err != nil {
+			return fmt.Errorf("error deleting command: %w", err)
+		}
+	}
+	return nil
+}
+
 func (a *App) Log() *slog.Logger {
 	return a.Logger
 }
 
 func (a *App) Session() *discordgo.Session {
 	return a.s
+}
+
+func (a *App) GuildDal(ctx context.Context) dataaccess.IGuildDal {
+	return dataaccess.NewGuildDal(ctx, a.Log())
+}
+
+func (a *App) TicketDal(ctx context.Context) dataaccess.ITicketDal {
+	return dataaccess.NewTicketDal(ctx, a.Log())
 }

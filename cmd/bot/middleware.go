@@ -15,11 +15,11 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// slashCommandController is the handler for slash commands.
-type slashCommandController func(a IApp, cmd string) (slashProcessor, error)
+// commandController is the handler for slash commands.
+type commandController func(a IApp, i *discordgo.InteractionCreate) (commandProcessor, error)
 
-// slashProcessor is the processor for slash commands.
-type slashProcessor func(a IApp, i *discordgo.InteractionCreate) error
+// commandProcessor is the processor for slash commands.
+type commandProcessor func(a IApp, i *discordgo.InteractionCreate) error
 
 // authOption is an option for the auth middleware. It indicates the type of authentication required.
 type authOption int
@@ -74,8 +74,33 @@ func middlewareHttp(handler Controller, authRequired authOption, a IApp) http.Ha
 	}
 }
 
+// interactionHandler is the handler for interactions.
+func interactionHandler(
+	a IApp,
+	slashControllers map[string]commandController,
+	buttonControllers map[string]commandProcessor,
+) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		switch i.Type {
+		// Slash commands.
+		case discordgo.InteractionApplicationCommand:
+			slashCommandHandler(a, slashControllers)(s, i)
+		case discordgo.InteractionMessageComponent:
+			buttonHandler(a, buttonControllers)(s, i)
+		default:
+			a.Log().Error(fmt.Sprintf("Unknown interaction type %d", i.Type),
+				slog.Int("type", int(i.Type)))
+
+			if err := respondEphemeralError(a, i); err != nil {
+				a.Log().Error("Error responding to interaction", slog.String(logging.KeyError, err.Error()))
+				return
+			}
+		}
+	}
+}
+
 // slashCommandHandler is the handler for slash commands.
-func slashCommandHandler(a IApp, controllers map[string]slashCommandController) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func slashCommandHandler(a IApp, controllers map[string]commandController) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
 		a.Log().Debug("Handling interaction " + i.ApplicationCommandData().Name)
 		if i.Type != discordgo.InteractionApplicationCommand {
@@ -83,12 +108,12 @@ func slashCommandHandler(a IApp, controllers map[string]slashCommandController) 
 		}
 
 		if controller, ok := controllers[i.ApplicationCommandData().Name]; ok {
-			processor, err := controller(a, i.Interaction.Data.(discordgo.ApplicationCommandInteractionData).Options[0].Name)
+			processor, err := controller(a, i)
 			if err != nil {
 				a.Log().Error(fmt.Sprintf("Error getting processor for command %s", i.ApplicationCommandData().Name),
 					slog.String(logging.KeyError, err.Error()))
 
-				if err := respondSlashError(a, i); err != nil {
+				if err := respondEphemeralError(a, i); err != nil {
 					a.Log().Error("Error responding to interaction", slog.String(logging.KeyError, err.Error()))
 					return
 				}
@@ -99,7 +124,7 @@ func slashCommandHandler(a IApp, controllers map[string]slashCommandController) 
 				a.Log().Error(fmt.Sprintf("Error processing command %s", i.ApplicationCommandData().Name),
 					slog.String(logging.KeyError, err.Error()))
 
-				if err := respondSlashError(a, i); err != nil {
+				if err := respondEphemeralError(a, i); err != nil {
 					a.Log().Error("Error responding to interaction", slog.String(logging.KeyError, err.Error()))
 					return
 				}
@@ -109,7 +134,38 @@ func slashCommandHandler(a IApp, controllers map[string]slashCommandController) 
 			a.Log().Error(fmt.Sprintf("No controller found for command %s", i.ApplicationCommandData().Name),
 				slog.String("command", i.ApplicationCommandData().Name))
 
-			if err := respondSlashError(a, i); err != nil {
+			if err := respondEphemeralError(a, i); err != nil {
+				a.Log().Error("Error responding to interaction", slog.String(logging.KeyError, err.Error()))
+				return
+			}
+		}
+	}
+}
+
+// buttonHandler is the handler for button interactions.
+func buttonHandler(a IApp, controllers map[string]commandProcessor) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
+		a.Log().Debug("Handling interaction " + i.MessageComponentData().CustomID)
+		if i.Type != discordgo.InteractionMessageComponent {
+			return
+		}
+
+		if processor, ok := controllers[i.MessageComponentData().CustomID]; ok {
+			if err := processor(a, i); err != nil {
+				a.Log().Error(fmt.Sprintf("Error processing command %s", i.MessageComponentData().CustomID),
+					slog.String(logging.KeyError, err.Error()))
+
+				if err := respondEphemeralError(a, i); err != nil {
+					a.Log().Error("Error responding to interaction", slog.String(logging.KeyError, err.Error()))
+					return
+				}
+				return
+			}
+		} else {
+			a.Log().Error(fmt.Sprintf("No controller found for command %s", i.MessageComponentData().CustomID),
+				slog.String("command", i.MessageComponentData().CustomID))
+
+			if err := respondEphemeralError(a, i); err != nil {
 				a.Log().Error("Error responding to interaction", slog.String(logging.KeyError, err.Error()))
 				return
 			}
