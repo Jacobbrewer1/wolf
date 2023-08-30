@@ -677,6 +677,9 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error getting channel: %w", err)
+	}
 
 	// Get the ticket.
 	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
@@ -859,6 +862,9 @@ func deleteTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 func deleteTicketConfirmationHandler(a IApp, i *discordgo.InteractionCreate) error {
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error getting channel: %w", err)
+	}
 
 	// Get the ticket.
 	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
