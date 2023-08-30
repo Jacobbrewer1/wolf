@@ -708,10 +708,8 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 		return nil
 	}
 
-	category := new(discordgo.Channel)
-
 	// Ensure that the category exists for created tickets.
-	category, err = a.Session().Channel(guild.Ticketing.CreatedTicketsCategoryID)
+	category, err := a.Session().Channel(guild.Ticketing.CreatedTicketsCategoryID)
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
