@@ -90,6 +90,7 @@ func (d *ticketDal) GetTicket(guildID string, channelID string) (*entities.Ticke
 	err := collection.FindOne(d.ctx, bson.M{
 		"guild_id":   guildID,
 		"channel_id": channelID,
+		"deleted":    false,
 	}).Decode(&ticket)
 	if err != nil {
 		return nil, fmt.Errorf("error getting ticket: %w", err)

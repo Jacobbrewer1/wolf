@@ -31,6 +31,12 @@ type Ticket struct {
 	// Claimed by is the ID of the user that claimed the ticket.
 	ClaimedBy string `json:"claimed_by" bson:"claimed_by"`
 
+	// ClosedBy is the ID of the user that closed the ticket.
+	ClosedBy string `json:"closed_by" bson:"closed_by"`
+
+	// Deleted is whether the ticket has been deleted.
+	Deleted bool `json:"deleted" bson:"deleted"`
+
 	// CreatedAt is the time that the ticket was created.
 	CreatedAt custom.Datetime `json:"created_at" bson:"created_at"`
 }

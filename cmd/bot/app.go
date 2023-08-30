@@ -205,9 +205,12 @@ func (a *App) RegisterDiscordHandlers() error {
 		},
 		// Button Controllers
 		map[string]commandProcessor{
-			OpenTicketButtonID:  createTicket,
-			ClaimTicketButtonID: claimTicketHandler,
-			CloseTicketButtonID: closeTicketHandler,
+			OpenTicketButtonID:         createTicket,
+			ClaimTicketButtonID:        claimTicketHandler,
+			CloseTicketButtonID:        closeTicketHandler,
+			ReopenTicketButtonID:       reopenTicketHandler,
+			DeleteTicketButtonID:       deleteTicketHandler,
+			DeleteConfirmationButtonID: deleteTicketConfirmationHandler,
 		}))
 	return nil
 }

@@ -29,6 +29,9 @@ const (
 
 	// DeleteTicketButtonID is the ID for the delete ticket button.
 	DeleteTicketButtonID = "delete_ticket_button"
+
+	// DeleteConfirmationButtonID is the ID for the delete confirmation button.
+	DeleteConfirmationButtonID = "delete_confirmation_button"
 )
 
 const (
@@ -43,6 +46,9 @@ const (
 
 	// DeleteEmoji is the emoji that will be used for the claim button. (Cross)
 	DeleteEmoji = "\u274C"
+
+	// WasteBasketEmoji is the emoji that will be used for the delete confirmation button. (Waste basket)
+	WasteBasketEmoji = "\U0001F5D1"
 )
 
 const (
@@ -206,29 +212,6 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Created Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
-				PermissionOverwrites: []*discordgo.PermissionOverwrite{
-					// Deny @everyone from seeing the ticket.
-					{
-						ID:    i.GuildID,
-						Type:  discordgo.PermissionOverwriteTypeRole,
-						Allow: 0,
-						Deny:  discordgo.PermissionAll,
-					},
-					// The creator of the ticket can see the ticket.
-					{
-						ID:    i.Member.User.ID,
-						Type:  discordgo.PermissionOverwriteTypeMember,
-						Allow: discordgo.PermissionAllText,
-						Deny:  discordgo.PermissionMentionEveryone,
-					},
-					// Add the ticket role.
-					{
-						ID:    guild.Ticketing.RoleID,
-						Type:  discordgo.PermissionOverwriteTypeRole,
-						Allow: discordgo.PermissionAllText,
-						Deny:  discordgo.PermissionMentionEveryone,
-					},
-				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
@@ -271,11 +254,13 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 		CreatedAt: custom.Datetime(time.Now().UTC()),
 	}
 
+	topicStr := calculateTopicString(ticket, OpenTicketButtonID)
+
 	// Create the ticket channel only the ticket role and the creator can see.
 	ticketChannel, err := a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 		Name:  ticket.Name(),
 		Type:  discordgo.ChannelTypeGuildText,
-		Topic: fmt.Sprintf("Ticket created by %s", i.Member.User.Username),
+		Topic: topicStr,
 		PermissionOverwrites: []*discordgo.PermissionOverwrite{
 			// Deny @everyone from seeing the ticket.
 			{
@@ -448,29 +433,6 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Claimed Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
-				PermissionOverwrites: []*discordgo.PermissionOverwrite{
-					// Deny @everyone from seeing the ticket.
-					{
-						ID:    i.GuildID,
-						Type:  discordgo.PermissionOverwriteTypeRole,
-						Allow: 0,
-						Deny:  discordgo.PermissionAll,
-					},
-					// The creator of the ticket can see the ticket.
-					{
-						ID:    i.Member.User.ID,
-						Type:  discordgo.PermissionOverwriteTypeMember,
-						Allow: discordgo.PermissionAllText,
-						Deny:  discordgo.PermissionMentionEveryone,
-					},
-					// Add the ticket role.
-					{
-						ID:    guild.Ticketing.RoleID,
-						Type:  discordgo.PermissionOverwriteTypeRole,
-						Allow: discordgo.PermissionAllText,
-						Deny:  discordgo.PermissionMentionEveryone,
-					},
-				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
@@ -492,11 +454,14 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 		}
 	}
 
+	topicStr := calculateTopicString(ticket, ClaimTicketButtonID)
+
 	// Move the ticket to the claimed tickets' category.
 	if _, err := a.Session().ChannelEditComplex(ticket.ChannelID, &discordgo.ChannelEdit{
 		Name:     ticket.Name(),
 		Position: &channel.Position,
 		ParentID: category.ID,
+		Topic:    topicStr,
 	}); err != nil {
 		return fmt.Errorf("error editing channel: %w", err)
 	}
@@ -518,6 +483,11 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			Content: fmt.Sprintf("<@%s>, you have claimed this ticket.", i.Member.User.ID),
 		},
 	})
+
+	// Update the channel topic.
+	if err := updateChannelTopic(a, ticket, ClaimTicketButtonID); err != nil {
+		a.Log().Error("Error updating ticket channel topic", slog.String(logging.KeyError, err.Error()))
+	}
 
 	return nil
 }
@@ -621,29 +591,6 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Closed Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
-				PermissionOverwrites: []*discordgo.PermissionOverwrite{
-					// Deny @everyone from seeing the ticket.
-					{
-						ID:    i.GuildID,
-						Type:  discordgo.PermissionOverwriteTypeRole,
-						Allow: 0,
-						Deny:  discordgo.PermissionAll,
-					},
-					// The creator of the ticket can see the ticket.
-					{
-						ID:    i.Member.User.ID,
-						Type:  discordgo.PermissionOverwriteTypeMember,
-						Allow: discordgo.PermissionAllText,
-						Deny:  discordgo.PermissionMentionEveryone,
-					},
-					// Add the ticket role.
-					{
-						ID:    guild.Ticketing.RoleID,
-						Type:  discordgo.PermissionOverwriteTypeRole,
-						Allow: discordgo.PermissionAllText,
-						Deny:  discordgo.PermissionMentionEveryone,
-					},
-				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
@@ -665,13 +612,24 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 		}
 	}
 
+	topicStr := calculateTopicString(ticket, CloseTicketButtonID)
+
 	// Move the ticket to the closed tickets' category.
 	if _, err := a.Session().ChannelEditComplex(ticket.ChannelID, &discordgo.ChannelEdit{
 		Name:     ticket.Name(),
 		Position: &channel.Position,
 		ParentID: category.ID,
+		Topic:    topicStr,
 	}); err != nil {
 		return fmt.Errorf("error editing channel: %w", err)
+	}
+
+	// Update the ticket.
+	ticket.ClosedBy = i.Member.User.ID
+
+	// Save the ticket.
+	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
 	go func() {
@@ -705,4 +663,298 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	})
 
 	return nil
+}
+
+func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
+	// Get the channel name.
+	channel, err := a.Session().Channel(i.ChannelID)
+
+	// Get the ticket.
+	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	if err != nil {
+		return fmt.Errorf("error getting ticket: %w", err)
+	}
+
+	// Get the guild configuration.
+	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	if err != nil {
+		return fmt.Errorf("error getting guild configuration: %w", err)
+	}
+
+	// Only the ticket creator can reopen the ticket.
+	if ticket.UserID != i.Member.User.ID {
+		err = respondEphemeral(a, i, "Only the ticket creator can reopen the ticket.")
+		if err != nil {
+			return fmt.Errorf("error responding to interaction: %w", err)
+		}
+		return nil
+	}
+
+	// Ensure that the ticket is not already open by using the category ID.
+	if channel.ParentID == guild.Ticketing.CreatedTicketsCategoryID {
+		err = respondEphemeral(a, i, "This ticket is already open.")
+		if err != nil {
+			return fmt.Errorf("error responding to interaction: %w", err)
+		}
+		return nil
+	}
+
+	category := new(discordgo.Channel)
+
+	// Ensure that the category exists for created tickets.
+	category, err = a.Session().Channel(guild.Ticketing.CreatedTicketsCategoryID)
+	if err != nil {
+		er := new(discordgo.RESTError)
+		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
+			a.Log().Warn("Open tickets category does not exist, creating it now")
+
+			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
+				Name: "Created Tickets",
+				Type: discordgo.ChannelTypeGuildCategory,
+			})
+			if err != nil {
+				return fmt.Errorf("error creating category: %w", err)
+			}
+
+			// Save the guild configuration.
+			guild.Ticketing.CreatedTicketsCategoryID = category.ID
+			if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+				return fmt.Errorf("error saving guild configuration: %w", err)
+			}
+		} else {
+			return fmt.Errorf("error getting category: %w", err)
+		}
+	} else if category != nil && category.ID != guild.Ticketing.CreatedTicketsCategoryID {
+		// Update the guild configuration.
+		guild.Ticketing.CreatedTicketsCategoryID = category.ID
+		if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+			return fmt.Errorf("error saving guild configuration: %w", err)
+		}
+	}
+
+	// Set the ticket to be unclaimed.
+	ticket.ClaimedBy = ""
+	ticket.ClosedBy = ""
+
+	topicStr := calculateTopicString(ticket, ReopenTicketButtonID)
+
+	// Move the ticket to the open tickets' category.
+	if _, err := a.Session().ChannelEditComplex(ticket.ChannelID, &discordgo.ChannelEdit{
+		Name:     ticket.Name(),
+		Position: &channel.Position,
+		ParentID: category.ID,
+		Topic:    topicStr,
+	}); err != nil {
+		return fmt.Errorf("error editing channel: %w", err)
+	}
+
+	go func() {
+		// Set the close button to be disabled.
+		if err := setButtonDisabled(a, i, CloseTicketButtonID, false); err != nil {
+			a.Log().Error("Error setting close button disabled", slog.String(logging.KeyError, err.Error()))
+		}
+
+		// Set the reopen button to be enabled.
+		if err := setButtonDisabled(a, i, ReopenTicketButtonID, true); err != nil {
+			a.Log().Error("Error setting reopen button enabled", slog.String(logging.KeyError, err.Error()))
+		}
+
+		// Set the claim button to be disabled.
+		if err := setButtonDisabled(a, i, ClaimTicketButtonID, false); err != nil {
+			a.Log().Error("Error setting claim button disabled", slog.String(logging.KeyError, err.Error()))
+		}
+
+		// Set the delete button to be disabled.
+		if err := setButtonDisabled(a, i, DeleteTicketButtonID, false); err != nil {
+			a.Log().Error("Error setting delete button disabled", slog.String(logging.KeyError, err.Error()))
+		}
+	}()
+
+	// Save the ticket.
+	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+		return fmt.Errorf("error saving ticket: %w", err)
+	}
+
+	// Respond to the interaction saying that the ticket has been reopened.
+	err = a.Session().InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("<@%s>, you have reopened this ticket.", i.Member.User.ID),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error responding to interaction: %w", err)
+	}
+
+	return nil
+}
+
+func deleteTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
+	// Get the guild configuration.
+	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	if err != nil {
+		return fmt.Errorf("error getting guild configuration: %w", err)
+	}
+
+	// Get the member that executed the command.
+	member, err := a.Session().GuildMember(i.GuildID, i.Member.User.ID)
+	if err != nil {
+		return fmt.Errorf("error getting member: %w", err)
+	}
+
+	// Ensure that the user has the ticket role.
+	if !hasRole(member, guild.Ticketing.RoleID) {
+		err = respondEphemeral(a, i, "You do not have the ticket role to claim tickets. [<@&"+guild.Ticketing.RoleID+">]")
+		if err != nil {
+			return fmt.Errorf("error responding to interaction: %w", err)
+		}
+		return nil
+	}
+
+	// Send confirmation embedded message with confirmation buttons.
+	confirmationMessage := &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+			Embeds: []*discordgo.MessageEmbed{
+				{
+					Title:       "Please confirm",
+					Description: "Are you sure you want to delete this ticket?",
+					Color:       0x00ff00,
+				},
+			},
+			Components: []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    fmt.Sprintf("%s Proceed", WasteBasketEmoji),
+							Style:    discordgo.DangerButton,
+							Disabled: false,
+							Emoji:    discordgo.ComponentEmoji{},
+							URL:      "",
+							CustomID: DeleteConfirmationButtonID,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Send the message.
+	err = a.Session().InteractionRespond(i.Interaction, confirmationMessage)
+	if err != nil {
+		return fmt.Errorf("error responding to interaction: %w", err)
+	}
+
+	return nil
+}
+
+func deleteTicketConfirmationHandler(a IApp, i *discordgo.InteractionCreate) error {
+	// Get the channel name.
+	channel, err := a.Session().Channel(i.ChannelID)
+
+	// Get the ticket.
+	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	if err != nil {
+		return fmt.Errorf("error getting ticket: %w", err)
+	}
+
+	// Mark the ticket as deleted.
+	ticket.Deleted = true
+
+	// Save the ticket.
+	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+		return fmt.Errorf("error saving ticket: %w", err)
+	}
+
+	go func() {
+		// Update the channel topic.
+		if err := updateChannelTopic(a, ticket, DeleteConfirmationButtonID); err != nil {
+			a.Log().Error("Error updating channel topic", slog.String(logging.KeyError, err.Error()))
+		}
+	}()
+
+	// Respond to the interaction saying that the ticket has been deleted.
+	err = a.Session().InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("<@%s>, this ticket has been deleted. This channel will be deleted in 60 seconds.", i.Member.User.ID),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error responding to interaction: %w", err)
+	}
+
+	// Delete the channel in 60 seconds on a separate goroutine.
+	go func() {
+		time.Sleep(60 * time.Second)
+		if _, err := a.Session().ChannelDelete(ticket.ChannelID); err != nil {
+			a.Log().Error("Error deleting channel", slog.String(logging.KeyError, err.Error()))
+		}
+	}()
+
+	return nil
+}
+
+func updateChannelTopic(a IApp, ticket *entities.Ticket, newStatus string) error {
+	topicStr := calculateTopicString(ticket, newStatus)
+
+	// Get the channel.
+	channel, err := a.Session().Channel(ticket.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error getting channel: %w", err)
+	}
+
+	a.Log().Debug("Updating channel topic",
+		slog.String("ticket", ticket.Name()),
+		slog.String("newStatus", newStatus),
+		slog.String("guildID", ticket.GuildID),
+		slog.String("newTopic", topicStr),
+	)
+
+	// Update the channel topic.
+	if _, err := a.Session().ChannelEditComplex(ticket.ChannelID, &discordgo.ChannelEdit{
+		Name:     channel.Name,
+		Position: &channel.Position,
+		Topic:    topicStr,
+	}); err != nil {
+		a.Log().Error("Error updating channel topic", slog.String(logging.KeyError, err.Error()))
+		return fmt.Errorf("error editing channel: %w", err)
+	}
+
+	a.Log().Debug("Updated channel topic", slog.String("ticket", ticket.Name()))
+	return nil
+}
+
+func calculateTopicString(ticket *entities.Ticket, newStatus string) string {
+	switch newStatus {
+	case OpenTicketButtonID:
+		newStatus = "Created"
+	case ClaimTicketButtonID:
+		newStatus = "Claimed"
+	case CloseTicketButtonID:
+		newStatus = "Closed"
+	case ReopenTicketButtonID:
+		newStatus = "Reopened"
+	case DeleteConfirmationButtonID:
+		newStatus = "Deleted"
+	default:
+		newStatus = "Unknown"
+	}
+
+	topicStr := "Ticket #%d | Status: %s"
+
+	if ticket.ClosedBy != "" {
+		topicStr = topicStr + " | Closed By: <@" + ticket.ClosedBy + ">"
+	}
+
+	if ticket.ClaimedBy != "" {
+		topicStr = topicStr + " | Claimed By: <@" + ticket.ClaimedBy + ">"
+	}
+
+	topicStr = fmt.Sprintf(topicStr, ticket.ID, newStatus)
+
+	topicStr = topicStr + " | Created By: <@" + ticket.UserID + ">"
+
+	return topicStr
 }
