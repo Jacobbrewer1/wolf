@@ -373,6 +373,9 @@ func setupNewTicketChannel(a IApp, ticket *entities.Ticket) error {
 func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error getting channel: %w", err)
+	}
 
 	// Get the ticket.
 	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
@@ -544,6 +547,9 @@ func setButtonDisabled(a IApp, i *discordgo.InteractionCreate, buttonID string, 
 func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error getting channel: %w", err)
+	}
 
 	// Get the ticket.
 	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
@@ -661,6 +667,9 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			Content: fmt.Sprintf("<@%s>, congratulations on closing this ticket.", i.Member.User.ID),
 		},
 	})
+	if err != nil {
+		return fmt.Errorf("error responding to interaction: %w", err)
+	}
 
 	return nil
 }
