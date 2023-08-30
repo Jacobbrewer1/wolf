@@ -5,11 +5,11 @@ import (
 	"github.com/Jacobbrewer1/wolf/pkg/messages"
 )
 
-func respondSlashError(a IApp, i *discordgo.InteractionCreate) error {
-	return respondSlashEphemeral(a, i, messages.ErrUserErrorProcessing)
+func respondEphemeralError(a IApp, i *discordgo.InteractionCreate) error {
+	return respondEphemeral(a, i, messages.ErrUserErrorProcessing)
 }
 
-func respondSlashEphemeral(a IApp, i *discordgo.InteractionCreate, content string) error {
+func respondEphemeral(a IApp, i *discordgo.InteractionCreate, content string) error {
 	return a.Session().InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -17,4 +17,13 @@ func respondSlashEphemeral(a IApp, i *discordgo.InteractionCreate, content strin
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
+}
+
+func hasRole(member *discordgo.Member, roleID string) bool {
+	for _, role := range member.Roles {
+		if role == roleID {
+			return true
+		}
+	}
+	return false
 }

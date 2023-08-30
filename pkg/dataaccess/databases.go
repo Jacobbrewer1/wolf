@@ -6,3 +6,5 @@ import (
 
 // MongoDB is the Mongo client. This is a connection pool.
 var MongoDB *mongo.Client
+
+const mongoDatabase = "wolf"
