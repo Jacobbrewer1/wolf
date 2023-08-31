@@ -86,7 +86,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "release" ]]; then
             echo "image_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
-            echo "image_tag=${GITHUB_REF#refs/heads/}-${{ steps.vars_deploy.outputs.sha_short_deploy }}" >> $GITHUB_OUTPUT
+            echo "image_tag=${GITHUB_REF#refs/heads/}_${{ steps.vars_deploy.outputs.sha_short_deploy }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Docker build
