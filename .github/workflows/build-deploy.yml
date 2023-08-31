@@ -83,7 +83,11 @@ jobs:
         id: image_tag
         run: |
           # If release then use the tag, otherwise use the branch and commit sha
-          echo "image_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "image_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${GITHUB_REF#refs/heads/}-${{ steps.vars_deploy.outputs.sha_short_deploy }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Docker build
         run: |
@@ -96,7 +100,7 @@ jobs:
 
   deploy:
     # Only run if release triggered the workflow
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs:
       - build
     name: Deploy
