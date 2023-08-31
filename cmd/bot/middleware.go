@@ -12,6 +12,7 @@ import (
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"github.com/Jacobbrewer1/wolf/pkg/request"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/slog"
 )
 
@@ -81,12 +82,18 @@ func interactionHandler(
 	buttonControllers map[string]commandProcessor,
 ) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// Process the latency for the interaction.
+		t := prometheus.NewTimer(monitoring.DiscordCommandDuration.WithLabelValues(i.Type.String()))
+		defer t.ObserveDuration()
+
 		switch i.Type {
 		// Slash commands.
 		case discordgo.InteractionApplicationCommand:
 			slashCommandHandler(a, slashControllers)(s, i)
+		// Button interactions.
 		case discordgo.InteractionMessageComponent:
 			buttonHandler(a, buttonControllers)(s, i)
+		// Unknown interaction type.
 		default:
 			a.Log().Error(fmt.Sprintf("Unknown interaction type %d", i.Type),
 				slog.Int("type", int(i.Type)))
