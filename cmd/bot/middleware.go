@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"runtime/debug"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"github.com/Jacobbrewer1/wolf/pkg/request"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/slog"
 )
 
