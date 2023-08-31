@@ -42,12 +42,4 @@ var (
 			Help: "Total number of discord guilds",
 		},
 	)
-
-	DiscordCommandDuration = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name: fmt.Sprintf("%s_discord_command_duration", config.AppName),
-			Help: "Duration of the discord command",
-		},
-		[]string{"command"},
-	)
 )
