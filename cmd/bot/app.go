@@ -192,10 +192,10 @@ func (a *App) GetJoinedGuilds() ([]*discordgo.UserGuild, error) {
 
 func (a *App) RegisterDiscordHandlers() error {
 	// Bot joined guild.
-	a.s.AddHandler(guildJoinedHandler(a))
+	a.s.AddHandler(a.guildJoinedHandler())
 
 	// Bot left guild.
-	a.s.AddHandler(guildLeaveHandler(a))
+	a.s.AddHandler(a.guildLeaveHandler())
 
 	// Interaction create handler.
 	a.s.AddHandler(interactionHandler(a,
