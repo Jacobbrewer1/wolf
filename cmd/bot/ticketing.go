@@ -210,6 +210,29 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Created Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
+				PermissionOverwrites: []*discordgo.PermissionOverwrite{
+					// Deny @everyone from seeing the ticket.
+					{
+						ID:    i.GuildID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: 0,
+						Deny:  discordgo.PermissionAll,
+					},
+					// The creator of the ticket can see the ticket.
+					{
+						ID:    i.Member.User.ID,
+						Type:  discordgo.PermissionOverwriteTypeMember,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+					// Add the ticket role.
+					{
+						ID:    guild.Ticketing.RoleID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
@@ -432,6 +455,29 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Claimed Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
+				PermissionOverwrites: []*discordgo.PermissionOverwrite{
+					// Deny @everyone from seeing the ticket.
+					{
+						ID:    i.GuildID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: 0,
+						Deny:  discordgo.PermissionAll,
+					},
+					// The creator of the ticket can see the ticket.
+					{
+						ID:    i.Member.User.ID,
+						Type:  discordgo.PermissionOverwriteTypeMember,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+					// Add the ticket role.
+					{
+						ID:    guild.Ticketing.RoleID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
@@ -597,6 +643,29 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Closed Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
+				PermissionOverwrites: []*discordgo.PermissionOverwrite{
+					// Deny @everyone from seeing the ticket.
+					{
+						ID:    i.GuildID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: 0,
+						Deny:  discordgo.PermissionAll,
+					},
+					// The creator of the ticket can see the ticket.
+					{
+						ID:    i.Member.User.ID,
+						Type:  discordgo.PermissionOverwriteTypeMember,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+					// Add the ticket role.
+					{
+						ID:    guild.Ticketing.RoleID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
@@ -721,6 +790,29 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Created Tickets",
 				Type: discordgo.ChannelTypeGuildCategory,
+				PermissionOverwrites: []*discordgo.PermissionOverwrite{
+					// Deny @everyone from seeing the ticket.
+					{
+						ID:    i.GuildID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: 0,
+						Deny:  discordgo.PermissionAll,
+					},
+					// The creator of the ticket can see the ticket.
+					{
+						ID:    i.Member.User.ID,
+						Type:  discordgo.PermissionOverwriteTypeMember,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+					// Add the ticket role.
+					{
+						ID:    guild.Ticketing.RoleID,
+						Type:  discordgo.PermissionOverwriteTypeRole,
+						Allow: discordgo.PermissionAllText,
+						Deny:  discordgo.PermissionMentionEveryone,
+					},
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("error creating category: %w", err)
