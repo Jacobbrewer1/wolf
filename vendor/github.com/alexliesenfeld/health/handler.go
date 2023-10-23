@@ -24,7 +24,7 @@ type (
 	Middleware func(next MiddlewareFunc) MiddlewareFunc
 
 	// MiddlewareFunc is a middleware for a health Handler (see NewHandler).
-	// Is is invoked each time an HTTP request is processed.
+	// It is invoked each time an HTTP request is processed.
 	MiddlewareFunc func(r *http.Request) CheckerResult
 
 	// ResultWriter enabled a Handler (see NewHandler) to write the CheckerResult
@@ -75,17 +75,16 @@ func NewHandler(checker Checker, options ...HandlerOption) http.HandlerFunc {
 		// Write HTTP response
 		disableResponseCache(w)
 		statusCode := mapHTTPStatusCode(result.Status, cfg.statusCodeUp, cfg.statusCodeDown)
+		//nolint:errcheck
 		cfg.resultWriter.Write(&result, statusCode, w, r)
 	}
 }
 
 func disableResponseCache(w http.ResponseWriter) {
-	// The response must be explicitly defined as "not cacheable"
-	// to avoid returning an incorrect AvailabilityStatus as a result of caching network equipment.
-	// refer to https://www.ibm.com/garage/method/practices/manage/health-check-apis/
+	// Avoid caching: https://www.ibm.com/garage/method/practices/manage/health-check-apis/
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "-1")
+	w.Header().Set("Expires", "Thu, 01 Jan 1970 00:00:00 GMT")
 }
 
 func mapHTTPStatusCode(status AvailabilityStatus, statusCodeUp int, statusCodeDown int) int {

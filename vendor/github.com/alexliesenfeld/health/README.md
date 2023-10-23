@@ -65,7 +65,7 @@ func main() {
 
 	// Create a new Checker.
 	checker := health.NewChecker(
-
+		
 		// Set the time-to-live for our cache to 1 second (default).
 		health.WithCacheDuration(1*time.Second),
 
@@ -260,7 +260,7 @@ without or minimal adjustments:
       Name: "google",
       Check: func(ctx context.Context) error {
          deadline, _ := ctx.Deadline()
-         timeout := time.Now().Sub(deadline)
+         timeout := time.Since(deadline)
          return healthcheck.HTTPGetCheck("https://www.google.com", timeout)()
       },
   }),
