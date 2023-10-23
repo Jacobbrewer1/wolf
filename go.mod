@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/Jacobbrewer1/discordgo v1.0.7
-	github.com/alexliesenfeld/health v0.7.0
+	github.com/alexliesenfeld/health v0.8.0
 	github.com/google/wire v0.5.0
 	github.com/gorilla/mux v1.8.0
 	github.com/prometheus/client_golang v1.17.0

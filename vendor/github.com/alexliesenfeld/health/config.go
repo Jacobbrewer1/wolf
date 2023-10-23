@@ -60,7 +60,6 @@ func NewChecker(options ...CheckerOption) Checker {
 	cfg := checkerConfig{
 		cacheTTL:     1 * time.Second,
 		timeout:      10 * time.Second,
-		maxErrMsgLen: 500,
 		checks:       map[string]*Check{},
 		interceptors: []Interceptor{},
 	}
@@ -69,15 +68,7 @@ func NewChecker(options ...CheckerOption) Checker {
 		opt(&cfg)
 	}
 
-	return newDefaultChecker(cfg)
-}
-
-// WithMaxErrorMessageLength limits maximum number of characters
-// in error messages. Default is 500.
-func WithMaxErrorMessageLength(length uint) CheckerOption {
-	return func(cfg *checkerConfig) {
-		cfg.maxErrMsgLen = length
-	}
+	return newChecker(cfg)
 }
 
 // WithDisabledDetails disables all data in the JSON response body. The AvailabilityStatus will be the only
@@ -168,7 +159,7 @@ func WithCacheDuration(duration time.Duration) CheckerOption {
 
 // WithCheck adds a new health check that contributes to the overall service availability status.
 // This check will be triggered each time Checker.Check is called (i.e., for each HTTP request).
-// If health checks are expensive or you expect a bigger amount of requests on your the health endpoint,
+// If health checks are expensive, or you expect a higher amount of requests on the health endpoint,
 // consider using WithPeriodicCheck instead.
 func WithCheck(check Check) CheckerOption {
 	return func(cfg *checkerConfig) {
@@ -179,7 +170,7 @@ func WithCheck(check Check) CheckerOption {
 // WithPeriodicCheck adds a new health check that contributes to the overall service availability status.
 // The health check will be performed on a fixed schedule and will not be executed for each HTTP request
 // (as in contrast to WithCheck). This allows to process a much higher number of HTTP requests without
-// actually calling the checked services too often or to execute long running checks.
+// actually calling the checked services too often or to execute long-running checks.
 // This way Checker.Check (and the health endpoint) always returns the last result of the periodic check.
 func WithPeriodicCheck(refreshPeriod time.Duration, initialDelay time.Duration, check Check) CheckerOption {
 	return func(cfg *checkerConfig) {
@@ -195,5 +186,16 @@ func WithPeriodicCheck(refreshPeriod time.Duration, initialDelay time.Duration, 
 func WithInterceptors(interceptors ...Interceptor) CheckerOption {
 	return func(cfg *checkerConfig) {
 		cfg.interceptors = interceptors
+	}
+}
+
+// WithInfo sets values that will be available in every health check result. For example, you can use this option
+// if you want to set information about your system that will be returned in every health check result, such as
+// version number, Git SHA, build date, etc. These values will be available in CheckerResult.Info. If you use the
+// default HTTP handler of this library (see NewHandler) or convert the CheckerResult to JSON on your own,
+// these values will be available in the "info" field.
+func WithInfo(values map[string]interface{}) CheckerOption {
+	return func(cfg *checkerConfig) {
+		cfg.info = values
 	}
 }

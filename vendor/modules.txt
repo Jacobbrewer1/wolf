@@ -1,8 +1,8 @@
 # github.com/Jacobbrewer1/discordgo v1.0.7
 ## explicit; go 1.20
 github.com/Jacobbrewer1/discordgo
-# github.com/alexliesenfeld/health v0.7.0
-## explicit; go 1.13
+# github.com/alexliesenfeld/health v0.8.0
+## explicit; go 1.18
 github.com/alexliesenfeld/health
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
