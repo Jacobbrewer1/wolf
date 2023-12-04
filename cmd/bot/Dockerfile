@@ -6,6 +6,6 @@ LABEL org.opencontainers.image.licenses='GNU General Public License v3.0'
 
 WORKDIR /app/wolf
 
-COPY ./wolf /app/wolf
+COPY ./bin/app /app/wolf
 
-CMD ["./wolf"]
+CMD ["./app"]
