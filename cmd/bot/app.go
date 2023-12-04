@@ -75,8 +75,6 @@ func (a *App) Run() error {
 
 	a.Info("Bot is now running.")
 
-	a.generateServer()
-	a.setupRoutes()
 	a.runServer()
 
 	// Register listerner for shutdown signal.
@@ -133,6 +131,11 @@ func (a *App) RegisterBot() error {
 }
 
 func (a *App) runServer() {
+	a.svr = &http.Server{
+		Addr:    ":" + MonitoringPort,
+		Handler: a.r,
+	}
+
 	a.r.HandleFunc(PathMetrics, promhttp.Handler().ServeHTTP).Methods(http.MethodGet)
 	a.r.HandleFunc(PathHealth, middlewareHttp(a.healthCheck())).Methods(http.MethodGet)
 
@@ -146,27 +149,6 @@ func (a *App) runServer() {
 			a.Warn("Monitoring server will not be available")
 		}
 	}()
-}
-
-func (a *App) setupRoutes() {
-	// PathMetrics is the path for metrics.
-	a.r.HandleFunc(PathMetrics, promhttp.Handler().ServeHTTP).Methods(http.MethodGet)
-
-	// PathHealth is the path for health check.
-	a.r.HandleFunc(PathHealth, middlewareHttp(a.healthCheck())).Methods(http.MethodGet)
-
-	// NotFoundHandler is the handler for 404.
-	a.r.NotFoundHandler = request.NotFoundHandler()
-
-	// MethodNotAllowedHandler is the handler for 405.
-	a.r.MethodNotAllowedHandler = request.MethodNotAllowedHandler()
-}
-
-func (a *App) generateServer() {
-	a.svr = &http.Server{
-		Addr:    ":" + MonitoringPort,
-		Handler: a.r,
-	}
 }
 
 func (a *App) GetJoinedGuilds() ([]*discordgo.UserGuild, error) {

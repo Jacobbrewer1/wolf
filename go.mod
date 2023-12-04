@@ -2,6 +2,8 @@ module github.com/Jacobbrewer1/wolf
 
 go 1.21
 
+toolchain go1.21.1
+
 require (
 	github.com/Jacobbrewer1/discordgo v1.0.7
 	github.com/alexliesenfeld/health v0.8.0
