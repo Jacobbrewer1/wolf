@@ -2,7 +2,7 @@ module github.com/Jacobbrewer1/wolf
 
 go 1.21
 
-toolchain go1.21.1
+//toolchain go1.21.1
 
 require (
 	github.com/Jacobbrewer1/discordgo v1.0.7
