@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Jacobbrewer1/wolf/pkg/messages"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/Jacobbrewer1/discordgo"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
+	"github.com/Jacobbrewer1/wolf/pkg/messages"
 	"github.com/Jacobbrewer1/wolf/pkg/request"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
