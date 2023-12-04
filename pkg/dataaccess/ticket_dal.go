@@ -3,6 +3,7 @@ package dataaccess
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/Jacobbrewer1/wolf/pkg/dataaccess/monitoring"
 	"github.com/Jacobbrewer1/wolf/pkg/entities"
@@ -11,26 +12,24 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/exp/slog"
 )
 
 const ticketDalName = "ticket_dal"
 
-type ITicketDal interface {
+var TicketDB TicketDal
+
+type TicketDal interface {
 	// SaveTicket saves a ticket.
-	SaveTicket(ticket *entities.Ticket) error
+	SaveTicket(ctx context.Context, ticket *entities.Ticket) error
 
 	// GetTicket gets a ticket by name.
-	GetTicket(guildID string, channelID string) (*entities.Ticket, error)
+	GetTicket(ctx context.Context, guildID string, channelID string) (*entities.Ticket, error)
 
 	// GetLatestTicket gets the latest ticket.
-	GetLatestTicket(guildID string) (*entities.Ticket, error)
+	GetLatestTicket(ctx context.Context, guildID string) (*entities.Ticket, error)
 }
 
-type ticketDal struct {
-	// ctx is the context.
-	ctx context.Context
-
+type ticketDalImpl struct {
 	// l is the logger.
 	l *slog.Logger
 
@@ -39,26 +38,20 @@ type ticketDal struct {
 }
 
 // NewTicketDal creates a new ticket data access layer.
-func NewTicketDal(ctx context.Context, logger *slog.Logger) ITicketDal {
-	// If the context is nil, create a new one.
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	l := logger.With(slog.String(logging.KeyDal, guildDalName))
+func NewTicketDal() TicketDal {
+	l := slog.Default().With(slog.String(logging.KeyDal, guildDalName))
 
 	if MongoDB == nil {
 		l.Warn("MongoDB is nil, this can cause a panic. Proceeding...")
 	}
 
-	return &ticketDal{
-		ctx:    ctx,
+	return &ticketDalImpl{
 		l:      l,
 		client: MongoDB,
 	}
 }
 
-func (d *ticketDal) SaveTicket(ticket *entities.Ticket) error {
+func (d *ticketDalImpl) SaveTicket(ctx context.Context, ticket *entities.Ticket) error {
 	// Get the guild collection.
 	collection := d.client.Database(mongoDatabase).Collection("tickets")
 
@@ -69,14 +62,14 @@ func (d *ticketDal) SaveTicket(ticket *entities.Ticket) error {
 
 	// Save the guild.
 	opts := options.Update().SetUpsert(true)
-	_, err := collection.UpdateOne(d.ctx, bson.M{"guild_id": ticket.GuildID, "channel_id": ticket.ChannelID}, bson.M{"$set": ticket}, opts)
+	_, err := collection.UpdateOne(ctx, bson.M{"guild_id": ticket.GuildID, "channel_id": ticket.ChannelID}, bson.M{"$set": ticket}, opts)
 	if err != nil {
 		return fmt.Errorf("error updating guild: %w", err)
 	}
 	return nil
 }
 
-func (d *ticketDal) GetTicket(guildID string, channelID string) (*entities.Ticket, error) {
+func (d *ticketDalImpl) GetTicket(ctx context.Context, guildID string, channelID string) (*entities.Ticket, error) {
 	// Get the guild collection.
 	collection := d.client.Database(mongoDatabase).Collection("tickets")
 
@@ -87,7 +80,7 @@ func (d *ticketDal) GetTicket(guildID string, channelID string) (*entities.Ticke
 
 	// Get the ticket.
 	var ticket entities.Ticket
-	err := collection.FindOne(d.ctx, bson.M{
+	err := collection.FindOne(ctx, bson.M{
 		"guild_id":   guildID,
 		"channel_id": channelID,
 		"deleted":    false,
@@ -99,7 +92,7 @@ func (d *ticketDal) GetTicket(guildID string, channelID string) (*entities.Ticke
 	return &ticket, nil
 }
 
-func (d *ticketDal) GetLatestTicket(guildID string) (*entities.Ticket, error) {
+func (d *ticketDalImpl) GetLatestTicket(ctx context.Context, guildID string) (*entities.Ticket, error) {
 	// Get the guild collection.
 	collection := d.client.Database(mongoDatabase).Collection("tickets")
 
@@ -114,7 +107,7 @@ func (d *ticketDal) GetLatestTicket(guildID string) (*entities.Ticket, error) {
 
 	// Get the ticket.
 	var ticket entities.Ticket
-	err := collection.FindOne(d.ctx, bson.M{"guild_id": guildID}, opts).Decode(&ticket)
+	err := collection.FindOne(ctx, bson.M{"guild_id": guildID}, opts).Decode(&ticket)
 	if err != nil {
 		return nil, fmt.Errorf("error getting ticket: %w", err)
 	}

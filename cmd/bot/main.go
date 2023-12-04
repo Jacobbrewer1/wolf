@@ -2,11 +2,10 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 
-	"github.com/Jacobbrewer1/wolf/cmd/bot/config"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
-	"golang.org/x/exp/slog"
 )
 
 func main() {
@@ -14,10 +13,10 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	config.Parse(a.Log())
+	parseConfig()
 	a.Info("Starting application")
 	if err := a.Run(); err != nil {
-		a.Error("Error running application", slog.String(logging.KeyError, err.Error()))
+		slog.Error("Error running application", slog.String(logging.KeyError, err.Error()))
 		os.Exit(1)
 	}
 }

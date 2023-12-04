@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Jacobbrewer1/wolf/pkg/dataaccess"
+	"log/slog"
 	"time"
 
 	"github.com/Jacobbrewer1/discordgo"
@@ -11,7 +13,6 @@ import (
 	"github.com/Jacobbrewer1/wolf/pkg/entities"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/exp/slog"
 )
 
 const (
@@ -195,7 +196,7 @@ Welcome to our tickets channel. If you have any questions or inquiries, please c
 // createTicket is the function for creating a ticket.
 func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 	// Get the guild configuration.
-	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(i.GuildID)
 	if err != nil {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
@@ -205,7 +206,7 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
-			a.Log().Warn("Created tickets category does not exist, creating it now")
+			slog.Warn("Created tickets category does not exist, creating it now")
 
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Created Tickets",
@@ -240,7 +241,7 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 
 			// Save the guild configuration.
 			guild.Ticketing.CreatedTicketsCategoryID = category.ID
-			if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+			if err := dataaccess.GuildDB.SaveGuild(guild); err != nil {
 				return fmt.Errorf("error saving guild configuration: %w", err)
 			}
 		} else {

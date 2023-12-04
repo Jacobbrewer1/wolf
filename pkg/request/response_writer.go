@@ -37,7 +37,11 @@ func (c *ClientWriter) WriteHeader(code int) {
 	if c.isHeaderWritten {
 		return
 	}
-	c.SetJsonContentType()
+
+	if c.Header().Get("Content-Type") == "" {
+		c.SetJsonContentType()
+	}
+
 	c.ResponseWriter.WriteHeader(code)
 	c.isHeaderWritten = true
 	c.statusCode = code

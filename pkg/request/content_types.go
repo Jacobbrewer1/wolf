@@ -15,6 +15,9 @@ const (
 
 	// ContentTypeText is the text content type.
 	ContentTypeText ContentType = "text/plain"
+
+	// ContentTypePng is the png content type.
+	ContentTypePng ContentType = "image/png"
 )
 
 // String returns the string representation of the ContentType.
@@ -46,6 +49,8 @@ func getContentType(contentType string) ContentType {
 		return ContentTypeHTML
 	case "text/plain":
 		return ContentTypeText
+	case "image/png":
+		return ContentTypePng
 	default:
 		return ContentTypeJSON
 	}
