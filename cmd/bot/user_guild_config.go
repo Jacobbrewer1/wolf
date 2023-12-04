@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Jacobbrewer1/discordgo"
+	"github.com/Jacobbrewer1/wolf/pkg/dataaccess"
 	"github.com/Jacobbrewer1/wolf/pkg/entities"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -87,6 +88,8 @@ func setupCmdController(a IApp, i *discordgo.InteractionCreate) (commandProcesso
 
 // enableTicketingCmdController is the controller for the enable ticketing command.
 func enableTicketingCmdController(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Extract the channel provided.
 	channel := i.ApplicationCommandData().Options[0].Options[0].ChannelValue(a.Session())
 
@@ -98,10 +101,8 @@ func enableTicketingCmdController(a IApp, i *discordgo.InteractionCreate) error 
 		return respondEphemeral(a, i, "You must provide a text channel for ticketing.")
 	}
 
-	gd := a.GuildDal(context.Background())
-
 	// Get the guild.
-	guild, err := gd.GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		return fmt.Errorf("error getting guild: %w", err)
 	}
@@ -157,7 +158,7 @@ func enableTicketingCmdController(a IApp, i *discordgo.InteractionCreate) error 
 	guild.Ticketing.OpenMessageID = msg.ID
 
 	// Save the guild.
-	if err := gd.SaveGuild(guild); err != nil {
+	if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 		return fmt.Errorf("error saving guild: %w", err)
 	}
 
@@ -171,10 +172,10 @@ func enableTicketingCmdController(a IApp, i *discordgo.InteractionCreate) error 
 
 // disableTicketingCmdController is the controller for the disable ticketing command.
 func disableTicketingCmdController(a IApp, i *discordgo.InteractionCreate) error {
-	gd := a.GuildDal(context.Background())
+	ctx := context.Background()
 
 	// Get the guild.
-	guild, err := gd.GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		return fmt.Errorf("error getting guild: %w", err)
 	}
@@ -189,7 +190,7 @@ func disableTicketingCmdController(a IApp, i *discordgo.InteractionCreate) error
 	guild.Ticketing.Enabled = false
 
 	// Save the guild.
-	if err := gd.SaveGuild(guild); err != nil {
+	if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 		return fmt.Errorf("error saving guild: %w", err)
 	}
 
