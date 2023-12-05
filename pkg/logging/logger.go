@@ -3,10 +3,9 @@ package logging
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
-
-	"golang.org/x/exp/slog"
 )
 
 // CommonLogger constructs a logging with default options.

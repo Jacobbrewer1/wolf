@@ -7,7 +7,6 @@
 package main
 
 import (
-	"github.com/Jacobbrewer1/wolf/cmd/bot/config"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"github.com/gorilla/mux"
 )
@@ -27,5 +26,5 @@ func InitializeApp() (*App, error) {
 }
 
 var (
-	_wireNameValue = logging.Name(config.AppName)
+	_wireNameValue = logging.Name(AppName)
 )

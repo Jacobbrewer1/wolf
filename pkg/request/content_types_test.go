@@ -39,6 +39,11 @@ func Test_getContentType(t *testing.T) {
 			want:  ContentTypeText,
 		},
 		{
+			name:  "png",
+			input: "image/png",
+			want:  ContentTypePng,
+		},
+		{
 			name:  "invalid",
 			input: "invalid",
 			want:  ContentTypeJSON,

@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Jacobbrewer1/wolf/pkg/dataaccess"
 	dbMonitoring "github.com/Jacobbrewer1/wolf/pkg/dataaccess/monitoring"
 	"github.com/alexliesenfeld/health"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/exp/slog"
 )
 
 func (a *App) healthCheck() Controller {
@@ -38,7 +38,7 @@ func (a *App) healthCheck() Controller {
 			MaxTimeInError:     0,
 			MaxContiguousFails: 0,
 			StatusListener: func(ctx context.Context, name string, state health.CheckState) {
-				a.Log().Info("MongoDB health check status changed",
+				slog.Info("MongoDB health check status changed",
 					slog.String("name", name),
 					slog.String("state", string(state.Status)),
 				)
@@ -60,7 +60,7 @@ func (a *App) healthCheck() Controller {
 			MaxTimeInError:     0,
 			MaxContiguousFails: 0,
 			StatusListener: func(ctx context.Context, name string, state health.CheckState) {
-				a.Log().Info("Discord API health check status changed",
+				slog.Info("Discord API health check status changed",
 					slog.String("name", name),
 					slog.String("state", string(state.Status)),
 				)

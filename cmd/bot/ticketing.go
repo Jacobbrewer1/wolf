@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Jacobbrewer1/discordgo"
 	"github.com/Jacobbrewer1/wolf/pkg/custom"
+	"github.com/Jacobbrewer1/wolf/pkg/dataaccess"
 	"github.com/Jacobbrewer1/wolf/pkg/entities"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/exp/slog"
 )
 
 const (
@@ -194,8 +195,10 @@ Welcome to our tickets channel. If you have any questions or inquiries, please c
 
 // createTicket is the function for creating a ticket.
 func createTicket(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Get the guild configuration.
-	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
@@ -205,7 +208,7 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
-			a.Log().Warn("Created tickets category does not exist, creating it now")
+			slog.Warn("Created tickets category does not exist, creating it now")
 
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Created Tickets",
@@ -240,7 +243,7 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 
 			// Save the guild configuration.
 			guild.Ticketing.CreatedTicketsCategoryID = category.ID
-			if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+			if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 				return fmt.Errorf("error saving guild configuration: %w", err)
 			}
 		} else {
@@ -249,13 +252,13 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 	} else if category != nil && category.ID != guild.Ticketing.CreatedTicketsCategoryID {
 		// Update the guild configuration.
 		guild.Ticketing.CreatedTicketsCategoryID = category.ID
-		if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+		if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 			return fmt.Errorf("error saving guild configuration: %w", err)
 		}
 	}
 
 	// Get the latest ticket.
-	latestTicket, err := a.TicketDal(context.Background()).GetLatestTicket(i.GuildID)
+	latestTicket, err := dataaccess.TicketDB.GetLatestTicket(ctx, i.GuildID)
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		return fmt.Errorf("error getting latest ticket: %w", err)
 	}
@@ -320,14 +323,14 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 	ticket.ChannelID = ticketChannel.ID
 
 	// Save the ticket.
-	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+	if err := dataaccess.TicketDB.SaveTicket(ctx, ticket); err != nil {
 		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
 	go func() {
 		err := setupNewTicketChannel(a, ticket)
 		if err != nil {
-			a.Log().Error("Error setting up new ticket channel", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting up new ticket channel", slog.String(logging.KeyError, err.Error()))
 		}
 	}()
 
@@ -365,6 +368,8 @@ func createTicket(a IApp, i *discordgo.InteractionCreate) error {
 }
 
 func setupNewTicketChannel(a IApp, ticket *entities.Ticket) error {
+	ctx := context.Background()
+
 	// Get the channel.
 	channel, err := a.Session().Channel(ticket.ChannelID)
 	if err != nil {
@@ -386,7 +391,7 @@ func setupNewTicketChannel(a IApp, ticket *entities.Ticket) error {
 	ticket.SetupMessageID = msg.ID
 
 	// Save the ticket.
-	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+	if err := dataaccess.TicketDB.SaveTicket(ctx, ticket); err != nil {
 		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
@@ -394,6 +399,8 @@ func setupNewTicketChannel(a IApp, ticket *entities.Ticket) error {
 }
 
 func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
 	if err != nil {
@@ -401,13 +408,13 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	}
 
 	// Get the ticket.
-	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	ticket, err := dataaccess.TicketDB.GetTicket(ctx, i.GuildID, channel.ID)
 	if err != nil {
 		return fmt.Errorf("error getting ticket: %w", err)
 	}
 
 	// Get the guild configuration.
-	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
@@ -450,7 +457,7 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
-			a.Log().Warn("Claimed tickets category does not exist, creating it now")
+			slog.Warn("Claimed tickets category does not exist, creating it now")
 
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Claimed Tickets",
@@ -485,7 +492,7 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 
 			// Save the guild configuration.
 			guild.Ticketing.ClaimedTicketsCategoryID = category.ID
-			if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+			if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 				return fmt.Errorf("error saving guild configuration: %w", err)
 			}
 		} else {
@@ -494,7 +501,7 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	} else if category != nil && category.ID != guild.Ticketing.ClaimedTicketsCategoryID {
 		// Update the guild configuration.
 		guild.Ticketing.ClaimedTicketsCategoryID = category.ID
-		if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+		if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 			return fmt.Errorf("error saving guild configuration: %w", err)
 		}
 	}
@@ -512,7 +519,7 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	}
 
 	// Save the ticket.
-	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+	if err := dataaccess.TicketDB.SaveTicket(ctx, ticket); err != nil {
 		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
@@ -534,13 +541,15 @@ func claimTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 
 	// Update the channel topic.
 	if err := updateChannelTopic(a, ticket, ClaimTicketButtonID); err != nil {
-		a.Log().Error("Error updating ticket channel topic", slog.String(logging.KeyError, err.Error()))
+		slog.Error("Error updating ticket channel topic", slog.String(logging.KeyError, err.Error()))
 	}
 
 	return nil
 }
 
 func setButtonDisabled(a IApp, i *discordgo.InteractionCreate, buttonID string, disabled bool) error {
+	ctx := context.Background()
+
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
 	if err != nil {
@@ -548,7 +557,7 @@ func setButtonDisabled(a IApp, i *discordgo.InteractionCreate, buttonID string, 
 	}
 
 	// Get the ticket.
-	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	ticket, err := dataaccess.TicketDB.GetTicket(ctx, i.GuildID, channel.ID)
 	if err != nil {
 		return fmt.Errorf("error getting ticket: %w", err)
 	}
@@ -591,6 +600,8 @@ func setButtonDisabled(a IApp, i *discordgo.InteractionCreate, buttonID string, 
 }
 
 func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
 	if err != nil {
@@ -598,13 +609,13 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	}
 
 	// Get the ticket.
-	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	ticket, err := dataaccess.TicketDB.GetTicket(ctx, i.GuildID, channel.ID)
 	if err != nil {
 		return fmt.Errorf("error getting ticket: %w", err)
 	}
 
 	// Get the guild configuration.
-	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
@@ -638,7 +649,7 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
-			a.Log().Warn("Claimed tickets category does not exist, creating it now")
+			slog.Warn("Claimed tickets category does not exist, creating it now")
 
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Closed Tickets",
@@ -673,7 +684,7 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 
 			// Save the guild configuration.
 			guild.Ticketing.ClosedTicketsCategoryID = category.ID
-			if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+			if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 				return fmt.Errorf("error saving guild configuration: %w", err)
 			}
 		} else {
@@ -682,7 +693,7 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	} else if category != nil && category.ID != guild.Ticketing.ClosedTicketsCategoryID {
 		// Update the guild configuration.
 		guild.Ticketing.ClosedTicketsCategoryID = category.ID
-		if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+		if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 			return fmt.Errorf("error saving guild configuration: %w", err)
 		}
 	}
@@ -703,29 +714,29 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	ticket.ClosedBy = i.Member.User.ID
 
 	// Save the ticket.
-	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+	if err := dataaccess.TicketDB.SaveTicket(ctx, ticket); err != nil {
 		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
 	go func() {
 		// Set the close button to be disabled.
 		if err := setButtonDisabled(a, i, CloseTicketButtonID, true); err != nil {
-			a.Log().Error("Error setting close button disabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting close button disabled", slog.String(logging.KeyError, err.Error()))
 		}
 
 		// Set the reopen button to be enabled.
 		if err := setButtonDisabled(a, i, ReopenTicketButtonID, false); err != nil {
-			a.Log().Error("Error setting reopen button enabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting reopen button enabled", slog.String(logging.KeyError, err.Error()))
 		}
 
 		// Set the claim button to be disabled.
 		if err := setButtonDisabled(a, i, ClaimTicketButtonID, true); err != nil {
-			a.Log().Error("Error setting claim button disabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting claim button disabled", slog.String(logging.KeyError, err.Error()))
 		}
 
 		// Set the delete button to be disabled.
 		if err := setButtonDisabled(a, i, DeleteTicketButtonID, true); err != nil {
-			a.Log().Error("Error setting delete button disabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting delete button disabled", slog.String(logging.KeyError, err.Error()))
 		}
 	}()
 
@@ -744,6 +755,8 @@ func closeTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 }
 
 func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
 	if err != nil {
@@ -751,13 +764,13 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	}
 
 	// Get the ticket.
-	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	ticket, err := dataaccess.TicketDB.GetTicket(ctx, i.GuildID, channel.ID)
 	if err != nil {
 		return fmt.Errorf("error getting ticket: %w", err)
 	}
 
 	// Get the guild configuration.
-	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
@@ -785,7 +798,7 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	if err != nil {
 		er := new(discordgo.RESTError)
 		if errors.As(err, &er) && (er.Message.Code == discordgo.ErrCodeUnknownChannel || er.Message.Code == discordgo.ErrCodeGeneralError) { // General is thrown when a 404 is returned.
-			a.Log().Warn("Open tickets category does not exist, creating it now")
+			slog.Warn("Open tickets category does not exist, creating it now")
 
 			category, err = a.Session().GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 				Name: "Created Tickets",
@@ -820,7 +833,7 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 
 			// Save the guild configuration.
 			guild.Ticketing.CreatedTicketsCategoryID = category.ID
-			if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+			if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 				return fmt.Errorf("error saving guild configuration: %w", err)
 			}
 		} else {
@@ -829,7 +842,7 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	} else if category != nil && category.ID != guild.Ticketing.CreatedTicketsCategoryID {
 		// Update the guild configuration.
 		guild.Ticketing.CreatedTicketsCategoryID = category.ID
-		if err := a.GuildDal(context.Background()).SaveGuild(guild); err != nil {
+		if err := dataaccess.GuildDB.SaveGuild(ctx, guild); err != nil {
 			return fmt.Errorf("error saving guild configuration: %w", err)
 		}
 	}
@@ -853,27 +866,27 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 	go func() {
 		// Set the close button to be disabled.
 		if err := setButtonDisabled(a, i, CloseTicketButtonID, false); err != nil {
-			a.Log().Error("Error setting close button disabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting close button disabled", slog.String(logging.KeyError, err.Error()))
 		}
 
 		// Set the reopen button to be enabled.
 		if err := setButtonDisabled(a, i, ReopenTicketButtonID, true); err != nil {
-			a.Log().Error("Error setting reopen button enabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting reopen button enabled", slog.String(logging.KeyError, err.Error()))
 		}
 
 		// Set the claim button to be disabled.
 		if err := setButtonDisabled(a, i, ClaimTicketButtonID, false); err != nil {
-			a.Log().Error("Error setting claim button disabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting claim button disabled", slog.String(logging.KeyError, err.Error()))
 		}
 
 		// Set the delete button to be disabled.
 		if err := setButtonDisabled(a, i, DeleteTicketButtonID, false); err != nil {
-			a.Log().Error("Error setting delete button disabled", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error setting delete button disabled", slog.String(logging.KeyError, err.Error()))
 		}
 	}()
 
 	// Save the ticket.
-	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+	if err := dataaccess.TicketDB.SaveTicket(ctx, ticket); err != nil {
 		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
@@ -892,8 +905,10 @@ func reopenTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 }
 
 func deleteTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Get the guild configuration.
-	guild, err := a.GuildDal(context.Background()).GetGuildByID(i.GuildID)
+	guild, err := dataaccess.GuildDB.GetGuildByID(ctx, i.GuildID)
 	if err != nil {
 		return fmt.Errorf("error getting guild configuration: %w", err)
 	}
@@ -952,6 +967,8 @@ func deleteTicketHandler(a IApp, i *discordgo.InteractionCreate) error {
 }
 
 func deleteTicketConfirmationHandler(a IApp, i *discordgo.InteractionCreate) error {
+	ctx := context.Background()
+
 	// Get the channel name.
 	channel, err := a.Session().Channel(i.ChannelID)
 	if err != nil {
@@ -959,7 +976,7 @@ func deleteTicketConfirmationHandler(a IApp, i *discordgo.InteractionCreate) err
 	}
 
 	// Get the ticket.
-	ticket, err := a.TicketDal(context.Background()).GetTicket(i.GuildID, channel.ID)
+	ticket, err := dataaccess.TicketDB.GetTicket(ctx, i.GuildID, channel.ID)
 	if err != nil {
 		return fmt.Errorf("error getting ticket: %w", err)
 	}
@@ -968,14 +985,14 @@ func deleteTicketConfirmationHandler(a IApp, i *discordgo.InteractionCreate) err
 	ticket.Deleted = true
 
 	// Save the ticket.
-	if err := a.TicketDal(context.Background()).SaveTicket(ticket); err != nil {
+	if err := dataaccess.TicketDB.SaveTicket(ctx, ticket); err != nil {
 		return fmt.Errorf("error saving ticket: %w", err)
 	}
 
 	go func() {
 		// Update the channel topic.
 		if err := updateChannelTopic(a, ticket, DeleteConfirmationButtonID); err != nil {
-			a.Log().Error("Error updating channel topic", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error updating channel topic", slog.String(logging.KeyError, err.Error()))
 		}
 	}()
 
@@ -994,7 +1011,7 @@ func deleteTicketConfirmationHandler(a IApp, i *discordgo.InteractionCreate) err
 	go func() {
 		time.Sleep(60 * time.Second)
 		if _, err := a.Session().ChannelDelete(ticket.ChannelID); err != nil {
-			a.Log().Error("Error deleting channel", slog.String(logging.KeyError, err.Error()))
+			slog.Error("Error deleting channel", slog.String(logging.KeyError, err.Error()))
 		}
 	}()
 
@@ -1010,7 +1027,7 @@ func updateChannelTopic(a IApp, ticket *entities.Ticket, newStatus string) error
 		return fmt.Errorf("error getting channel: %w", err)
 	}
 
-	a.Log().Debug("Updating channel topic",
+	slog.Debug("Updating channel topic",
 		slog.String("ticket", ticket.Name()),
 		slog.String("newStatus", newStatus),
 		slog.String("guildID", ticket.GuildID),
@@ -1023,11 +1040,11 @@ func updateChannelTopic(a IApp, ticket *entities.Ticket, newStatus string) error
 		Position: &channel.Position,
 		Topic:    topicStr,
 	}); err != nil {
-		a.Log().Error("Error updating channel topic", slog.String(logging.KeyError, err.Error()))
+		slog.Error("Error updating channel topic", slog.String(logging.KeyError, err.Error()))
 		return fmt.Errorf("error editing channel: %w", err)
 	}
 
-	a.Log().Debug("Updated channel topic", slog.String("ticket", ticket.Name()))
+	slog.Debug("Updated channel topic", slog.String("ticket", ticket.Name()))
 	return nil
 }
 

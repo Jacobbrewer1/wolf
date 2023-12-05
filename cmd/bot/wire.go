@@ -4,7 +4,6 @@
 package main
 
 import (
-	"github.com/Jacobbrewer1/wolf/cmd/bot/config"
 	"github.com/Jacobbrewer1/wolf/pkg/logging"
 	"github.com/google/wire"
 	"github.com/gorilla/mux"
@@ -12,7 +11,7 @@ import (
 
 func InitializeApp() (*App, error) {
 	wire.Build(
-		wire.Value(logging.Name(config.AppName)),
+		wire.Value(logging.Name(AppName)),
 		logging.NewConfig,
 		logging.CommonLogger,
 		mux.NewRouter,

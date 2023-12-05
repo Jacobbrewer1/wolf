@@ -3,6 +3,7 @@ package dataaccess
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/Jacobbrewer1/wolf/pkg/dataaccess/monitoring"
 	"github.com/Jacobbrewer1/wolf/pkg/entities"
@@ -11,23 +12,21 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/exp/slog"
 )
 
 const guildDalName = "guild_dal"
 
-type IGuildDal interface {
+var GuildDB GuildDal
+
+type GuildDal interface {
 	// SaveGuild saves a guild.
-	SaveGuild(guild *entities.Guild) error
+	SaveGuild(ctx context.Context, guild *entities.Guild) error
 
 	// GetGuildByID gets a guild by ID.
-	GetGuildByID(id string) (*entities.Guild, error)
+	GetGuildByID(ctx context.Context, id string) (*entities.Guild, error)
 }
 
-type guildDal struct {
-	// ctx is the context.
-	ctx context.Context
-
+type guildDalImpl struct {
 	// l is the logger.
 	l *slog.Logger
 
@@ -36,26 +35,21 @@ type guildDal struct {
 }
 
 // NewGuildDal creates a new guild data access layer.
-func NewGuildDal(ctx context.Context, logger *slog.Logger) IGuildDal {
-	// If the context is nil, create a new one.
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func NewGuildDal() GuildDal {
 
-	l := logger.With(slog.String(logging.KeyDal, guildDalName))
+	l := slog.Default().With(slog.String(logging.KeyDal, guildDalName))
 
 	if MongoDB == nil {
 		l.Warn("MongoDB is nil, this can cause a panic. Proceeding...")
 	}
 
-	return &guildDal{
-		ctx:    ctx,
+	return &guildDalImpl{
 		l:      l,
 		client: MongoDB,
 	}
 }
 
-func (g *guildDal) SaveGuild(guild *entities.Guild) error {
+func (g *guildDalImpl) SaveGuild(ctx context.Context, guild *entities.Guild) error {
 	// Get the guild collection.
 	collection := g.client.Database(mongoDatabase).Collection("guilds")
 
@@ -66,7 +60,7 @@ func (g *guildDal) SaveGuild(guild *entities.Guild) error {
 
 	// Save the guild.
 	opts := options.Update().SetUpsert(true)
-	_, err := collection.UpdateOne(g.ctx, bson.M{"id": guild.ID}, bson.M{"$set": guild}, opts)
+	_, err := collection.UpdateOne(ctx, bson.M{"id": guild.ID}, bson.M{"$set": guild}, opts)
 	if err != nil {
 		return fmt.Errorf("error updating guild: %w", err)
 	}
@@ -74,7 +68,7 @@ func (g *guildDal) SaveGuild(guild *entities.Guild) error {
 }
 
 // GetGuildByID gets a guild by ID.
-func (g *guildDal) GetGuildByID(id string) (*entities.Guild, error) {
+func (g *guildDalImpl) GetGuildByID(ctx context.Context, id string) (*entities.Guild, error) {
 	// Get the guild collection.
 	collection := g.client.Database(mongoDatabase).Collection("guilds")
 
@@ -86,7 +80,7 @@ func (g *guildDal) GetGuildByID(id string) (*entities.Guild, error) {
 	// Get the guild.
 	guild := new(entities.Guild)
 
-	err := collection.FindOne(g.ctx, bson.M{"id": id}).Decode(guild)
+	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(guild)
 	if err != nil {
 		return nil, fmt.Errorf("error getting guild: %w", err)
 	}
