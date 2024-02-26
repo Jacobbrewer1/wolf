@@ -84,7 +84,7 @@ jobs:
           token: ${{ secrets.REPO_PAT }}
 
       - name: Deploy api
-        uses: WyriHaximus/github-action-helm3@v3
+        uses: WyriHaximus/github-action-helm3@v4
         with:
           exec: helm upgrade --install wolf ./charts/charts/wolf --set image.tag=${{ steps.vars_deploy.outputs.sha_short_deploy }} --set wolf.commitSha="${{ steps.vars_deploy.outputs.sha_short_deploy }}"
           kubeconfig: '${{ secrets.KUBE_CONFIG }}'
