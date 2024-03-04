@@ -10,7 +10,7 @@ require (
 	github.com/google/wire v0.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/prometheus/client_golang v1.17.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	go.mongodb.org/mongo-driver v1.13.0
 	golang.org/x/time v0.5.0
 )
